@@ -24753,12 +24753,12 @@ T4:function T4(){var _=this
 _.d=!0
 _.e=412
 _.f=11
-_.r=null
-_.w=720
-_.x=!1
-_.y=null
-_.z=40
-_.c=_.a=_.Q=null},
+_.z=null
+_.Q=720
+_.as=!1
+_.at=null
+_.ax=40
+_.c=_.a=_.ay=null},
 ala:function ala(a,b){this.a=a
 this.b=b},
 al9:function al9(a){this.a=a},
@@ -82207,22 +82207,22 @@ A.a7M.prototype={}
 A.Au.prototype={
 an(){return new A.T4()}}
 A.T4.prototype={
-l(){var s=this.r
+l(){var s=this.z
 if(s!=null)s.aM()
-s=this.y
+s=this.at
 if(s!=null)s.aM()
 this.aK()},
-adp(a,b){var s=this,r=s.y
+adp(a,b){var s=this,r=s.at
 if(r!=null)r.aM()
-s.Q=b
-s.z=40
-s.y=A.adt(B.en,new A.ala(s,a))},
+s.ay=b
+s.ax=40
+s.at=A.adt(B.en,new A.ala(s,a))},
 rC(a,b){return this.abP(a,b)},
 abP(a,b){var s=0,r=A.O(t.H),q=this,p,o,n
 var $async$rC=A.P(function(c,d){if(c===1)return A.L(d,r)
-for(;;)switch(s){case 0:n=q.y
+for(;;)switch(s){case 0:n=q.at
 if(n!=null)n.aM()
-q.Q=null
+q.ay=null
 n=$.ci
 p=(n==null?$.ci=$.fg():n).fF("[DEFAULT]")
 A.d4(p,$.eF(),!0)
@@ -82234,11 +82234,11 @@ s=2
 return A.R(n.a.bh(o),$async$rC)
 case 2:n=q.c
 if(n!=null){n=n.ae(t.Pu).f
-n.AP(A.arD(null,null,null,B.Df,null,B.Y,null,A.cC(b==="TIME_OUT"?"\u23f3 40s Time Up! Order pass ke dusre rider ko transfer ho gaya.":"\u274c Order reject ho gaya.",null,null,null,null,null,null),null,B.jh,null,null,null,null,null,null,null,null,null,null))}return A.M(null,r)}})
+n.AP(A.arD(null,null,null,B.Df,null,B.Y,null,A.cC(b==="TIME_OUT"?"\u23f3 40s Time Up! Order transfer ho gaya.":"\u274c Order reject ho gaya.",null,null,null,null,null,null),null,B.jh,null,null,null,null,null,null,null,null,null,null))}return A.M(null,r)}})
 return A.N($async$rC,r)},
 adq(){var s=this
 s.ag(new A.ald(s))
-s.r=A.adt(B.en,new A.ale(s))},
+s.z=A.adt(B.en,new A.ale(s))},
 a53(a){if(a<=1)return A.ae(["fast",12,"late",10],t.N,t.S)
 if(a<=2)return A.ae(["fast",22,"late",18],t.N,t.S)
 if(a<=3)return A.ae(["fast",30,"late",27],t.N,t.S)
@@ -82272,26 +82272,26 @@ KE(a,b){var s=null,r=A.eq(16)
 return A.jU(s,A.fQ(A.c([B.FD,B.Ph,A.cC(a,s,s,s,B.T3,s,s),B.l1,A.cC(b,s,s,s,A.e2(s,s,B.bA,s,s,s,s,s,s,s,s,11,s,s,s,s,s,!0,s,s,s,s,s,s,s,s),B.dJ,s)],t.E),B.Z,B.R,B.a0),B.D,s,new A.dH(B.k,s,s,r,s,s,B.b3),s,s,s,B.EO,s,s,1/0)}}
 A.ala.prototype={
 $1(a){var s=this.a
-if(s.z>0){if(s.c!=null)s.ag(new A.al9(s))}else{a.aM()
+if(s.ax>0){if(s.c!=null)s.ag(new A.al9(s))}else{a.aM()
 s.rC(this.b,"TIME_OUT")}},
 $S:74}
 A.al9.prototype={
-$0(){--this.a.z},
+$0(){--this.a.ax},
 $S:0}
 A.ald.prototype={
-$0(){this.a.x=!0},
+$0(){this.a.as=!0},
 $S:0}
 A.ale.prototype={
 $1(a){var s,r=this.a
-if(r.w>0){if(r.c!=null)r.ag(new A.alb(r))}else{s=r.r
+if(r.Q>0){if(r.c!=null)r.ag(new A.alb(r))}else{s=r.z
 if(s!=null)s.aM()
 if(r.c!=null)r.ag(new A.alc(r))}},
 $S:74}
 A.alb.prototype={
-$0(){--this.a.w},
+$0(){--this.a.Q},
 $S:0}
 A.alc.prototype={
-$0(){this.a.x=!1},
+$0(){this.a.as=!1},
 $S:0}
 A.al8.prototype={
 $1(a){var s=this,r=null,q=A.eq(16),p=s.b,o=A.avI(r,new A.hE(4,A.eq(12),B.lP),r,B.EF,r,r,"",r,!0,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,"\u2022\u2022\u2022\u2022",r,r,r,r,r,r,r,r,r,!0,!0,!1,r,r,r,r,r,r,r,r,r,r,r,r,r,r),n=t.E
@@ -82308,7 +82308,7 @@ for(;;)switch(s){case 0:s=B.d.kg(q.b.a.a)===B.d.kg(q.c)?2:4
 break
 case 2:A.ma(q.d,!1).zw(null)
 p=q.a
-o=p.r
+o=p.z
 if(o!=null)o.aM()
 o=q.e
 p.ag(new A.al5(p,o))
@@ -82332,8 +82332,8 @@ $S:10}
 A.al5.prototype={
 $0(){var s=this.a
 s.e=s.e+this.b;++s.f
-s.x=!1
-s.w=720},
+s.as=!1
+s.Q=720},
 $S:0}
 A.aln.prototype={
 $1(a){var s=this.a
@@ -82347,9 +82347,9 @@ $2(a5,a6){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1,a2,a3,a4=null
 if(a6.a===B.mV)return B.C6
 s=a6.b
 if(s==null||s.gy_().length===0){s=this.a
-r=s.y
+r=s.at
 if(r!=null)r.aM()
-s.Q=null
+s.ay=null
 return s.KE("No Active Deliveries","Customer aur Store Partner se naya order aate hi yahan live flash hoga.")}q=B.b.gV(s.gy_())
 s=q.a_d()
 s.toString
@@ -82378,22 +82378,22 @@ r.toString
 f=g.h(0,"late")
 f.toString
 e=m==="STORE_PACKING"
-if(e){if(s.Q!==o)$.Y.ok$.push(new A.alf(s,p,o))}else{d=s.y
+if(e){if(s.ay!==o)$.Y.ok$.push(new A.alf(s,p,o))}else{d=s.at
 if(d!=null)d.aM()}d=A.eq(16)
 c=t.E
 b=A.c([],c)
 if(e){a=A.eq(12)
 a0=A.aqf(B.md)
-B.b.N(b,A.c([A.jU(a4,A.fB(A.c([A.fB(A.c([B.FC,B.cS,A.cC("New Request: "+s.z+" s left",a4,a4,a4,B.SB,a4,a4)],c),B.Z,B.R,B.a0,0),A.cC("Auto-pass if timeout",a4,a4,a4,A.e2(a4,a4,B.ct,a4,a4,a4,a4,a4,a4,a4,a4,11,a4,a4,a4,a4,a4,!0,a4,a4,a4,a4,a4,a4,a4,a4),a4,a4)],c),B.Z,B.cL,B.a0,0),B.D,a4,new A.dH(B.mp,a4,a0,a,a4,a4,B.b3),a4,a4,a4,B.nh,a4,a4,a4),B.l0],c))}a=""+r
+B.b.N(b,A.c([A.jU(a4,A.fB(A.c([A.fB(A.c([B.FC,B.cS,A.cC("New Request: "+s.ax+" s left",a4,a4,a4,B.SB,a4,a4)],c),B.Z,B.R,B.a0,0),A.cC("Auto-pass if timeout",a4,a4,a4,A.e2(a4,a4,B.ct,a4,a4,a4,a4,a4,a4,a4,a4,11,a4,a4,a4,a4,a4,!0,a4,a4,a4,a4,a4,a4,a4,a4),a4,a4)],c),B.Z,B.cL,B.a0,0),B.D,a4,new A.dH(B.mp,a4,a0,a,a4,a4,B.b3),a4,a4,a4,B.nh,a4,a4,a4),B.l0],c))}a=""+r
 b.push(A.fB(A.c([A.fB(A.c([B.FG,B.cS,A.fQ(A.c([A.cC("Order "+o,a4,a4,a4,B.zA,a4,a4),A.cC("Drop Distance: "+A.m(n)+" km",a4,a4,a4,A.e2(a4,a4,B.bA,a4,a4,a4,a4,a4,a4,a4,a4,12,a4,a4,a4,a4,a4,!0,a4,a4,a4,a4,a4,a4,a4,a4),a4,a4)],c),B.aV,B.R,B.a0)],c),B.Z,B.R,B.a0,0),A.fQ(A.c([A.cC("\u20b9"+a,a4,a4,a4,B.Qx,a4,a4),B.UW],c),B.cv,B.R,B.a0)],c),B.Z,B.cL,B.a0,0))
 b.push(B.Ec)
 a0=A.eq(12)
 a=A.fQ(A.c([B.UU,A.cC("\u2022 Ontime Payout: \u20b9"+a,a4,a4,a4,B.R5,a4,a4)],c),B.aV,B.R,B.a0)
-if(s.x){a1=s.w
+if(s.as){a1=s.Q
 a2=B.i.dt(a1,60)
 a3=B.i.bB(a1,60)
 a1=B.d.pW(B.i.k(a2),2,"0")+":"+B.d.pW(B.i.k(a3),2,"0")}else a1=m==="PICKED_UP"?"Running":"12:00"
-b.push(A.jU(a4,A.fB(A.c([a,A.fQ(A.c([A.cC(a1,a4,a4,a4,A.e2(a4,a4,s.w<180?B.dq:B.K,a4,a4,a4,a4,a4,a4,a4,a4,16,a4,a4,B.ax,a4,a4,!0,a4,a4,a4,a4,a4,a4,a4,a4),a4,a4),A.cC("* Late: \u20b9"+f,a4,a4,a4,B.T9,a4,a4)],c),B.cv,B.R,B.a0)],c),B.Z,B.cL,B.a0,0),B.D,a4,new A.dH(B.iN,a4,a4,a0,a4,a4,B.b3),a4,a4,a4,B.nh,a4,a4,a4))
+b.push(A.jU(a4,A.fB(A.c([a,A.fQ(A.c([A.cC(a1,a4,a4,a4,A.e2(a4,a4,s.Q<180?B.dq:B.K,a4,a4,a4,a4,a4,a4,a4,a4,16,a4,a4,B.ax,a4,a4,!0,a4,a4,a4,a4,a4,a4,a4,a4),a4,a4),A.cC("* Late: \u20b9"+f,a4,a4,a4,B.T9,a4,a4)],c),B.cv,B.R,B.a0)],c),B.Z,B.cL,B.a0,0),B.D,a4,new A.dH(B.iN,a4,a4,a0,a4,a4,B.b3),a4,a4,a4,B.nh,a4,a4,a4))
 b.push(B.hP)
 b.push(A.fB(A.c([B.FF,B.cS,A.IP(A.fQ(A.c([B.V0,A.cC(l+" \u2022 Bag: "+k,a4,a4,a4,A.e2(a4,a4,B.bA,a4,a4,a4,a4,a4,a4,a4,a4,11,a4,a4,a4,a4,a4,!0,a4,a4,a4,a4,a4,a4,a4,a4),a4,a4)],c),B.aV,B.R,B.a0),1)],c),B.Z,B.R,B.a0,0))
 b.push(B.l0)
@@ -82401,11 +82401,11 @@ b.push(A.fB(A.c([B.FI,B.cS,A.IP(A.fQ(A.c([B.V2,A.cC(j+" \u2022 "+i,a4,a4,a4,A.e2
 b.push(B.hP)
 if(e){r=A.IP(new A.KM(new A.alh(s,p),a4,a4,a4,A.aHw(a4,a4,a4,a4,a4,a4,a4,a4,a4,B.dq,a4,a4,B.cx,a4,new A.c2(A.eq(10),B.p),B.AE,a4,a4,a4,a4),a4,a4,!1,a4,!0,a4,B.US,a4),1)
 f=A.ID(a4,a4,B.cu,a4,a4,a4,a4,a4,a4,a4,a4,a4,B.cx,a4,new A.c2(A.eq(10),B.p),a4,a4,a4,a4,a4)
-b.push(A.fB(A.c([r,B.z4,A.IP(A.av6(A.cC("Accept Delivery ("+s.z+"s)",a4,a4,a4,B.hW,a4,a4),new A.ali(s,p),f),2)],c),B.Z,B.R,B.a0,0))}else if(m==="RIDER_ASSIGNED")b.push(A.h7(A.aqG(B.FA,B.V_,new A.alj(p),A.ID(a4,a4,B.mQ,a4,a4,a4,a4,a4,a4,a4,a4,a4,B.cx,a4,new A.c2(A.eq(10),B.p),a4,a4,a4,a4,a4)),a4,1/0))
+b.push(A.fB(A.c([r,B.z4,A.IP(A.av6(A.cC("Accept Delivery ("+s.ax+"s)",a4,a4,a4,B.hW,a4,a4),new A.ali(s,p),f),2)],c),B.Z,B.R,B.a0,0))}else if(m==="RIDER_ASSIGNED")b.push(A.h7(A.aqG(B.FA,B.V_,new A.alj(p),A.ID(a4,a4,B.mQ,a4,a4,a4,a4,a4,a4,a4,a4,a4,B.cx,a4,new A.c2(A.eq(10),B.p),a4,a4,a4,a4,a4)),a4,1/0))
 else if(m==="RIDER_ARRIVED"){s=A.eq(10)
 b.push(A.jU(a4,B.C7,B.D,a4,new A.dH(B.mp,a4,A.aqf(B.md),s,a4,a4,B.b3),a4,a4,a4,B.cx,a4,a4,1/0))}else if(m==="STORE_PACKED")b.push(A.h7(A.aqG(B.FJ,B.UZ,new A.alk(s,p),A.ID(a4,a4,B.Dh,a4,a4,a4,a4,a4,a4,a4,a4,a4,B.cx,a4,new A.c2(A.eq(10),B.p),a4,a4,a4,a4,a4)),a4,1/0))
 else if(m==="PICKED_UP"){e=A.ID(a4,a4,B.cu,a4,a4,a4,a4,a4,a4,a4,a4,a4,B.cx,a4,new A.c2(A.eq(10),B.p),a4,a4,a4,a4,a4)
-if(s.w>0)c=r
+if(s.Q>0)c=r
 else c=f
 b.push(A.h7(A.aqG(B.FK,A.cC("Delivered (OTP Verify: \u20b9"+c+")",a4,a4,a4,B.hW,a4,a4),new A.all(s,r,f,a5,p,h),e),a4,1/0))}return new A.Hp(3,new A.c2(d,B.p),new A.ck(B.ni,A.fQ(b,B.aV,B.R,B.a0),a4),a4)},
 $S:529}
@@ -82421,14 +82421,14 @@ $S:0}
 A.ali.prototype={
 $0(){var s=0,r=A.O(t.H),q=this,p,o,n
 var $async$$0=A.P(function(a,b){if(a===1)return A.L(b,r)
-for(;;)switch(s){case 0:n=q.a.y
+for(;;)switch(s){case 0:n=q.a.at
 if(n!=null)n.aM()
 n=$.ci
 p=(n==null?$.ci=$.fg():n).fF("[DEFAULT]")
 A.d4(p,$.eF(),!0)
 n=A.y7(new A.dJ(p)).ik("orders").h4(q.b)
 o=$.Gx().oa()
-o=A.OB(A.ae(["status","RIDER_ASSIGNED","riderName","Rider Partner","riderAssignedAt",new A.i6(o,o)],t.K,t.X))
+o=A.OB(A.ae(["status","RIDER_ASSIGNED","riderName","Rider Partner","riderPhone","9876543210","riderLat",27.2731,"riderLng",79.6642,"riderAssignedAt",new A.i6(o,o)],t.K,t.X))
 o.toString
 s=2
 return A.R(n.a.bh(o),$async$$0)
@@ -82467,7 +82467,7 @@ case 2:return A.M(null,r)}})
 return A.N($async$$0,r)},
 $S:10}
 A.all.prototype={
-$0(){var s=this,r=s.a,q=r.w>0?s.b:s.c
+$0(){var s=this,r=s.a,q=r.Q>0?s.b:s.c
 r.adc(s.d,s.e,s.f,q)},
 $S:0}
 A.JT.prototype={

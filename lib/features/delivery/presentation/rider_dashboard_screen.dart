@@ -15,12 +15,15 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   int todayEarnings = 412;
   int completedDeliveries = 11;
 
-  // Delivery 12-minute countdown timer
+  final String _riderName = 'Rider Partner';
+  final String _riderPhone = '9876543210';
+  final double _currentLat = 27.2731;
+  final double _currentLng = 79.6642;
+
   Timer? _deliveryTimer;
   int _deliverySecondsLeft = 12 * 60;
   bool _deliveryTimerRunning = false;
 
-  // 40-second Acceptance Timer
   Timer? _acceptTimer;
   int _acceptSecondsLeft = 40;
   String? _currentPendingOrderId;
@@ -67,7 +70,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
           backgroundColor: Colors.orange.shade800,
           content: Text(
             reason == 'TIME_OUT'
-                ? '⏳ 40s Time Up! Order pass ke dusre rider ko transfer ho gaya.'
+                ? '⏳ 40s Time Up! Order transfer ho gaya.'
                 : '❌ Order reject ho gaya.',
           ),
         ),
@@ -331,11 +334,11 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                 stream: FirebaseFirestore.instance
                     .collection('orders')
                     .where('status', whereIn: [
-                      'STORE_PACKING',  // Partner ne accept kiya
-                      'RIDER_ASSIGNED', // Rider ne accept kiya
-                      'RIDER_ARRIVED',  // Rider dark store pahunch gaya
-                      'STORE_PACKED',   // Partner ne bag handover kar diya
-                      'PICKED_UP'       // Rider deliver karne nikal chuka hai
+                      'STORE_PACKING',
+                      'RIDER_ASSIGNED',
+                      'RIDER_ARRIVED',
+                      'STORE_PACKED',
+                      'PICKED_UP'
                     ])
                     .snapshots(),
                 builder: (context, snapshot) {
@@ -518,7 +521,6 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                           ),
                           const SizedBox(height: 16),
 
-                          // Step-by-Step Rider Buttons
                           if (status == 'STORE_PACKING')
                             Row(
                               children: [
@@ -548,7 +550,10 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                                       _acceptTimer?.cancel();
                                       await FirebaseFirestore.instance.collection('orders').doc(docId).update({
                                         'status': 'RIDER_ASSIGNED',
-                                        'riderName': 'Rider Partner',
+                                        'riderName': _riderName,
+                                        'riderPhone': _riderPhone,
+                                        'riderLat': _currentLat,
+                                        'riderLng': _currentLng,
                                         'riderAssignedAt': FieldValue.serverTimestamp(),
                                       });
                                     },
