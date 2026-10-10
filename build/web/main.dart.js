@@ -24797,7 +24797,8 @@ alh:function alh(a,b){this.a=a
 this.b=b},
 ali:function ali(a,b){this.a=a
 this.b=b},
-alj:function alj(a){this.a=a},
+alj:function alj(a,b){this.a=a
+this.b=b},
 alk:function alk(a,b){this.a=a
 this.b=b},
 all:function all(a,b,c,d,e,f){var _=this
@@ -82401,7 +82402,7 @@ b.push(A.fB(A.c([B.FI,B.cS,A.IP(A.fQ(A.c([B.V2,A.cC(j+" \u2022 "+i,a4,a4,a4,A.e2
 b.push(B.hP)
 if(e){r=A.IP(new A.KM(new A.alh(s,p),a4,a4,a4,A.aHw(a4,a4,a4,a4,a4,a4,a4,a4,a4,B.dq,a4,a4,B.cx,a4,new A.c2(A.eq(10),B.p),B.AE,a4,a4,a4,a4),a4,a4,!1,a4,!0,a4,B.US,a4),1)
 f=A.ID(a4,a4,B.cu,a4,a4,a4,a4,a4,a4,a4,a4,a4,B.cx,a4,new A.c2(A.eq(10),B.p),a4,a4,a4,a4,a4)
-b.push(A.fB(A.c([r,B.z4,A.IP(A.av6(A.cC("Accept Delivery ("+s.ax+"s)",a4,a4,a4,B.hW,a4,a4),new A.ali(s,p),f),2)],c),B.Z,B.R,B.a0,0))}else if(m==="RIDER_ASSIGNED")b.push(A.h7(A.aqG(B.FA,B.V_,new A.alj(p),A.ID(a4,a4,B.mQ,a4,a4,a4,a4,a4,a4,a4,a4,a4,B.cx,a4,new A.c2(A.eq(10),B.p),a4,a4,a4,a4,a4)),a4,1/0))
+b.push(A.fB(A.c([r,B.z4,A.IP(A.av6(A.cC("Accept Delivery ("+s.ax+"s)",a4,a4,a4,B.hW,a4,a4),new A.ali(s,p),f),2)],c),B.Z,B.R,B.a0,0))}else if(m==="RIDER_ASSIGNED")b.push(A.h7(A.aqG(B.FA,B.V_,new A.alj(s,p),A.ID(a4,a4,B.mQ,a4,a4,a4,a4,a4,a4,a4,a4,a4,B.cx,a4,new A.c2(A.eq(10),B.p),a4,a4,a4,a4,a4)),a4,1/0))
 else if(m==="RIDER_ARRIVED"){s=A.eq(10)
 b.push(A.jU(a4,B.C7,B.D,a4,new A.dH(B.mp,a4,A.aqf(B.md),s,a4,a4,B.b3),a4,a4,a4,B.cx,a4,a4,1/0))}else if(m==="STORE_PACKED")b.push(A.h7(A.aqG(B.FJ,B.UZ,new A.alk(s,p),A.ID(a4,a4,B.Dh,a4,a4,a4,a4,a4,a4,a4,a4,a4,B.cx,a4,new A.c2(A.eq(10),B.p),a4,a4,a4,a4,a4)),a4,1/0))
 else if(m==="PICKED_UP"){e=A.ID(a4,a4,B.cu,a4,a4,a4,a4,a4,a4,a4,a4,a4,B.cx,a4,new A.c2(A.eq(10),B.p),a4,a4,a4,a4,a4)
@@ -82441,9 +82442,9 @@ var $async$$0=A.P(function(a,b){if(a===1)return A.L(b,r)
 for(;;)switch(s){case 0:o=$.ci
 n=(o==null?$.ci=$.fg():o).fF("[DEFAULT]")
 A.d4(n,$.eF(),!0)
-o=A.y7(new A.dJ(n)).ik("orders").h4(q.a)
+o=A.y7(new A.dJ(n)).ik("orders").h4(q.b)
 p=$.Gx().oa()
-p=A.OB(A.ae(["status","RIDER_ARRIVED","riderArrivedAt",new A.i6(p,p)],t.K,t.X))
+p=A.OB(A.ae(["status","RIDER_ARRIVED","riderLat",27.2731,"riderLng",79.6642,"riderArrivedAt",new A.i6(p,p)],t.K,t.X))
 p.toString
 s=2
 return A.R(o.a.bh(p),$async$$0)
@@ -82459,7 +82460,7 @@ o=(p==null?$.ci=$.fg():p).fF("[DEFAULT]")
 A.d4(o,$.eF(),!0)
 p=A.y7(new A.dJ(o)).ik("orders").h4(q.b)
 n=$.Gx().oa()
-n=A.OB(A.ae(["status","PICKED_UP","pickedUpAt",new A.i6(n,n)],t.K,t.X))
+n=A.OB(A.ae(["status","PICKED_UP","riderLat",27.2766,"riderLng",79.66619999999999,"pickedUpAt",new A.i6(n,n)],t.K,t.X))
 n.toString
 s=2
 return A.R(p.a.bh(n),$async$$0)

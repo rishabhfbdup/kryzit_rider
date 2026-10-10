@@ -548,6 +548,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                                     ),
                                     onPressed: () async {
                                       _acceptTimer?.cancel();
+                                      // Step 1: Accept hone par Rider ka naam, phone aur GPS store karna
                                       await FirebaseFirestore.instance.collection('orders').doc(docId).update({
                                         'status': 'RIDER_ASSIGNED',
                                         'riderName': _riderName,
@@ -577,8 +578,11 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                                 icon: const Icon(Icons.store, color: Colors.white),
                                 label: const Text('Reached Dark Store', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                                 onPressed: () async {
+                                  // Step 2: Dark store pahunchne par status aur coordinates update
                                   await FirebaseFirestore.instance.collection('orders').doc(docId).update({
                                     'status': 'RIDER_ARRIVED',
+                                    'riderLat': _currentLat,
+                                    'riderLng': _currentLng,
                                     'riderArrivedAt': FieldValue.serverTimestamp(),
                                   });
                                 },
@@ -613,8 +617,11 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                                 label: const Text('Confirm Handover & Start Delivery', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                                 onPressed: () async {
                                   _startDeliveryTimer();
+                                  // Step 3: Delivery route shuru hone par coordinates aage shift karna
                                   await FirebaseFirestore.instance.collection('orders').doc(docId).update({
                                     'status': 'PICKED_UP',
+                                    'riderLat': _currentLat + 0.0035,
+                                    'riderLng': _currentLng + 0.0020,
                                     'pickedUpAt': FieldValue.serverTimestamp(),
                                   });
                                 },
