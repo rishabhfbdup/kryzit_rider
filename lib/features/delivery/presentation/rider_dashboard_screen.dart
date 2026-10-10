@@ -20,57 +20,16 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   int _deliverySecondsLeft = 12 * 60;
   bool _deliveryTimerRunning = false;
 
-  // 40-second Order Acceptance Timer
+  // 40-second Acceptance Timer
   Timer? _acceptTimer;
   int _acceptSecondsLeft = 40;
   String? _currentPendingOrderId;
-
-  // Auto Dispatch Engine State
-  bool _isAutoDispatching = false;
 
   @override
   void dispose() {
     _deliveryTimer?.cancel();
     _acceptTimer?.cancel();
     super.dispose();
-  }
-
-  // --- AUTOMATED STORE DISPATCH SIMULATOR ---
-  void _scheduleAutoStoreOrder() {
-    if (_isAutoDispatching || !isOnDuty) return;
-    _isAutoDispatching = true;
-
-    // 8 second baad dark store se apne aap naya order trigger hoga
-    Timer(const Duration(seconds: 8), () async {
-      if (!mounted || !isOnDuty) {
-        _isAutoDispatching = false;
-        return;
-      }
-
-      // Check karein ki pehle se koi active task toh nahi hai
-      final activeCheck = await FirebaseFirestore.instance
-          .collection('orders')
-          .where('status', whereIn: ['NEW_ASSIGNED', 'READY_FOR_PICKUP', 'PICKED_UP'])
-          .get();
-
-      if (activeCheck.docs.isEmpty) {
-        final int randomNum = 1000 + (DateTime.now().millisecondsSinceEpoch % 9000);
-        final String newOrderId = '#KZ-$randomNum';
-
-        await FirebaseFirestore.instance.collection('orders').add({
-          'orderId': newOrderId,
-          'status': 'NEW_ASSIGNED',
-          'distanceKm': 2.3,
-          'deliveryOtp': '4821',
-          'storeName': 'Kamalganj Main Hub',
-          'bagNumber': 'B-${randomNum % 40 + 1}',
-          'customerName': 'Vikas Gupta',
-          'customerAddress': 'Railway Road, Kamalganj, Farrukhabad',
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-      }
-      _isAutoDispatching = false;
-    });
   }
 
   void _startAcceptTimer(String docId, String orderId) {
@@ -87,19 +46,19 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
         }
       } else {
         timer.cancel();
-        _reassignToNextRider(docId, reason: 'TIME_OUT');
+        _rejectOrder(docId, reason: 'TIME_OUT');
       }
     });
   }
 
-  Future<void> _reassignToNextRider(String docId, {required String reason}) async {
+  Future<void> _rejectOrder(String docId, {required String reason}) async {
     _acceptTimer?.cancel();
     _currentPendingOrderId = null;
 
     await FirebaseFirestore.instance.collection('orders').doc(docId).update({
-      'status': 'SEARCHING_NEXT_PARTNER',
+      'status': 'REJECTED_BY_RIDER',
       'lastRejectedReason': reason,
-      'reassignedAt': FieldValue.serverTimestamp(),
+      'rejectedAt': FieldValue.serverTimestamp(),
     });
 
     if (mounted) {
@@ -108,8 +67,8 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
           backgroundColor: Colors.orange.shade800,
           content: Text(
             reason == 'TIME_OUT'
-                ? '⏳ 40s Time Up! Order pass ke doosre partner ko transfer ho gaya.'
-                : '❌ Order reject ho gaya. Pass ke agle rider ko bhej diya gaya.',
+                ? '⏳ 40s Time Up! Order pass ke dusre rider ko transfer ho gaya.'
+                : '❌ Order reject ho gaya.',
           ),
         ),
       );
@@ -292,7 +251,6 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Duty Status
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -323,14 +281,13 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                   ),
                 ),
                 Text(
-                  isOnDuty ? '⚡ Auto-Dispatch Active' : '💤 Offline',
+                  isOnDuty ? '⚡ Live Dispatch Listening' : '💤 Offline',
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
                 ),
               ],
             ),
             const SizedBox(height: 16),
 
-            // Earnings Banner
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -364,33 +321,34 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
             ),
             const SizedBox(height: 24),
 
-            const Text('Active Task & Delivery Slab', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text('Active Task & Delivery Queue', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
 
             if (!isOnDuty)
-              _buildEmptyCard('Rider is Offline', 'Naye orders paane ke liye On-Duty switch on karein.')
+              _buildEmptyCard('Rider is Offline', 'Naye orders receive karne ke liye On-Duty switch ON karein.')
             else
-              // Order Stream
               StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('orders')
-                    .where('status', whereIn: ['NEW_ASSIGNED', 'READY_FOR_PICKUP', 'PICKED_UP'])
+                    .where('status', whereIn: [
+                      'STORE_PACKING',  // Partner ne accept kiya
+                      'RIDER_ASSIGNED', // Rider ne accept kiya
+                      'RIDER_ARRIVED',  // Rider dark store pahunch gaya
+                      'STORE_PACKED',   // Partner ne bag handover kar diya
+                      'PICKED_UP'       // Rider deliver karne nikal chuka hai
+                    ])
                     .snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
                   }
 
-                  // Agar koi active order nahi hai, toh automatically agla order schedule hoga
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                     _acceptTimer?.cancel();
                     _currentPendingOrderId = null;
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      _scheduleAutoStoreOrder();
-                    });
                     return _buildEmptyCard(
-                      'Waiting for Store Order...',
-                      'Auto-dispatch chal raha hai. 8-10 seconds me order assign ho jayega.',
+                      'No Active Deliveries',
+                      'Customer aur Store Partner se naya order aate hi yahan live flash hoga.',
                     );
                   }
 
@@ -398,20 +356,20 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                   final data = orderDoc.data() as Map<String, dynamic>;
 
                   final String docId = orderDoc.id;
-                  final String orderId = data['orderId'] ?? '#KZ-XXXX';
-                  final double distanceKm = (data['distanceKm'] ?? 2.4).toDouble();
-                  final String status = data['status'] ?? 'NEW_ASSIGNED';
-                  final String storeName = data['storeName'] ?? 'Kamalganj Main Hub';
-                  final String bagNumber = data['bagNumber'] ?? 'B-42';
+                  final String orderId = data['orderId'] ?? '#KZ-ORDER';
+                  final double distanceKm = ((data['distanceKm'] ?? 2.0) as num).toDouble();
+                  final String status = data['status'] ?? 'STORE_PACKING';
+                  final String storeName = data['storeName'] ?? 'Kamalganj Dark Store Hub';
+                  final String bagNumber = data['bagNumber'] ?? 'B-01';
                   final String customerName = data['customerName'] ?? 'Customer';
-                  final String customerAddress = data['customerAddress'] ?? 'Address';
-                  final String correctOtp = (data['deliveryOtp'] ?? '4821').toString();
+                  final String customerAddress = data['customerAddress'] ?? 'Kamalganj';
+                  final String correctOtp = (data['deliveryOtp'] ?? '1234').toString();
 
                   final slabs = _getPayoutSlab(distanceKm);
                   final int fastPay = slabs['fast']!;
                   final int latePay = slabs['late']!;
 
-                  if (status == 'NEW_ASSIGNED') {
+                  if (status == 'STORE_PACKING') {
                     if (_currentPendingOrderId != orderId) {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         _startAcceptTimer(docId, orderId);
@@ -429,7 +387,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (status == 'NEW_ASSIGNED') ...[
+                          if (status == 'STORE_PACKING') ...[
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
@@ -445,7 +403,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                                       const Icon(Icons.timer, color: Colors.deepOrange),
                                       const SizedBox(width: 8),
                                       Text(
-                                        'Accept karne ke liye: $_acceptSecondsLeft s',
+                                        'New Request: $_acceptSecondsLeft s left',
                                         style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange, fontSize: 14),
                                       ),
                                     ],
@@ -468,7 +426,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text('Order $orderId', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                      Text('Distance: $distanceKm km', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                                      Text('Drop Distance: $distanceKm km', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
                                     ],
                                   ),
                                 ],
@@ -477,14 +435,13 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
                                   Text('₹$fastPay', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Color(0xFF0F9D58))),
-                                  const Text('Fast Pay Bonus', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                  const Text('Payout Earn', style: TextStyle(fontSize: 10, color: Colors.grey)),
                                 ],
                               ),
                             ],
                           ),
                           const Divider(height: 24),
 
-                          // Target Timer Display Card
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
@@ -498,7 +455,7 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const Text('Target: 12 Mins delivery', style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 12)),
-                                    Text('• Target me: ₹$fastPay', style: const TextStyle(fontSize: 11, color: Colors.black87)),
+                                    Text('• Ontime Payout: ₹$fastPay', style: const TextStyle(fontSize: 11, color: Colors.black87)),
                                   ],
                                 ),
                                 Column(
@@ -507,14 +464,14 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                                     Text(
                                       _deliveryTimerRunning
                                           ? _formatTime(_deliverySecondsLeft)
-                                          : (status == 'PICKED_UP' ? 'Running' : 'Not Started'),
+                                          : (status == 'PICKED_UP' ? 'Running' : '12:00'),
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
                                         color: _deliverySecondsLeft < 180 ? Colors.red : Colors.black87,
                                       ),
                                     ),
-                                    Text('* Late hone par: ₹$latePay', style: const TextStyle(fontSize: 10, color: Colors.deepOrange)),
+                                    Text('* Late: ₹$latePay', style: const TextStyle(fontSize: 10, color: Colors.deepOrange)),
                                   ],
                                 ),
                               ],
@@ -522,7 +479,6 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                           ),
                           const SizedBox(height: 16),
 
-                          // Store Pickup
                           Row(
                             children: [
                               const Icon(Icons.radio_button_checked, color: Colors.green, size: 18),
@@ -531,8 +487,8 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text('Dark Store Pickup', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                    Text('$storeName • Bag #$bagNumber', style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
+                                    const Text('Pickup: Dark Store', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                    Text('$storeName • Bag: $bagNumber', style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
                                   ],
                                 ),
                               ),
@@ -540,7 +496,6 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                           ),
                           const SizedBox(height: 12),
 
-                          // Customer Drop
                           Row(
                             children: [
                               const Icon(Icons.location_on, color: Colors.redAccent, size: 18),
@@ -563,8 +518,8 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                           ),
                           const SizedBox(height: 16),
 
-                          // Status-based Buttons
-                          if (status == 'NEW_ASSIGNED')
+                          // Step-by-Step Rider Buttons
+                          if (status == 'STORE_PACKING')
                             Row(
                               children: [
                                 Expanded(
@@ -576,8 +531,8 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                                       padding: const EdgeInsets.symmetric(vertical: 14),
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                     ),
-                                    onPressed: () => _reassignToNextRider(docId, reason: 'RIDER_REJECTED'),
-                                    child: const Text('Pass / Reject', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    onPressed: () => _rejectOrder(docId, reason: 'RIDER_REJECTED'),
+                                    child: const Text('Reject', style: TextStyle(fontWeight: FontWeight.bold)),
                                   ),
                                 ),
                                 const SizedBox(width: 12),
@@ -592,19 +547,55 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                                     onPressed: () async {
                                       _acceptTimer?.cancel();
                                       await FirebaseFirestore.instance.collection('orders').doc(docId).update({
-                                        'status': 'READY_FOR_PICKUP',
-                                        'acceptedAt': FieldValue.serverTimestamp(),
+                                        'status': 'RIDER_ASSIGNED',
+                                        'riderName': 'Rider Partner',
+                                        'riderAssignedAt': FieldValue.serverTimestamp(),
                                       });
                                     },
                                     child: Text(
-                                      'Accept Order (${_acceptSecondsLeft}s)',
+                                      'Accept Delivery (${_acceptSecondsLeft}s)',
                                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                                     ),
                                   ),
                                 ),
                               ],
                             )
-                          else if (status == 'READY_FOR_PICKUP')
+                          else if (status == 'RIDER_ASSIGNED')
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blueAccent.shade700,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                                icon: const Icon(Icons.store, color: Colors.white),
+                                label: const Text('Reached Dark Store', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                onPressed: () async {
+                                  await FirebaseFirestore.instance.collection('orders').doc(docId).update({
+                                    'status': 'RIDER_ARRIVED',
+                                    'riderArrivedAt': FieldValue.serverTimestamp(),
+                                  });
+                                },
+                              ),
+                            )
+                          else if (status == 'RIDER_ARRIVED')
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade50,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.orange.shade300),
+                              ),
+                              child: const Center(
+                                child: Text(
+                                  '⏳ At Store: Waiting for Partner Handover...',
+                                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange),
+                                ),
+                              ),
+                            )
+                          else if (status == 'STORE_PACKED')
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton.icon(
@@ -613,8 +604,8 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
                                   padding: const EdgeInsets.symmetric(vertical: 14),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                 ),
-                                icon: const Icon(Icons.qr_code_scanner, color: Colors.white),
-                                label: const Text('Confirm Bag & Picked Up (Start Timer)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                icon: const Icon(Icons.moped, color: Colors.white),
+                                label: const Text('Confirm Handover & Start Delivery', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                                 onPressed: () async {
                                   _startDeliveryTimer();
                                   await FirebaseFirestore.instance.collection('orders').doc(docId).update({
