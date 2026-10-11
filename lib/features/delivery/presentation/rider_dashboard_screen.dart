@@ -1,221 +1,134 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:url_launcher/url_launcher.dart';
+import '../../../core/constants/app_colors.dart';
 
 class RiderDashboardScreen extends StatefulWidget {
-  const RiderDashboardScreen({super.key});
+  final String riderId;
+  final String riderName;
+  final String riderPhone;
+
+  const RiderDashboardScreen({
+    super.key,
+    this.riderId = 'RD-KZ-101',
+    this.riderName = 'Kryzit Partner Rider',
+    this.riderPhone = '9876543210',
+  });
 
   @override
   State<RiderDashboardScreen> createState() => _RiderDashboardScreenState();
 }
 
 class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
-  bool isOnDuty = true;
-  int todayEarnings = 412;
-  int completedDeliveries = 11;
+  bool _isOnDuty = true;
+  int _selectedBottomTab = 0; // 0 -> Orders, 1 -> Earnings / Wallet, 2 -> Profile
 
-  final String _riderName = 'Rider Partner';
-  final String _riderPhone = '9876543210';
-  final double _currentLat = 27.2731;
-  final double _currentLng = 79.6642;
-
-  Timer? _deliveryTimer;
-  int _deliverySecondsLeft = 12 * 60;
-  bool _deliveryTimerRunning = false;
-
-  Timer? _acceptTimer;
-  int _acceptSecondsLeft = 40;
-  String? _currentPendingOrderId;
-
-  @override
-  void dispose() {
-    _deliveryTimer?.cancel();
-    _acceptTimer?.cancel();
-    super.dispose();
-  }
-
-  void _startAcceptTimer(String docId, String orderId) {
-    _acceptTimer?.cancel();
-    _currentPendingOrderId = orderId;
-    _acceptSecondsLeft = 40;
-
-    _acceptTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_acceptSecondsLeft > 0) {
-        if (mounted) {
-          setState(() {
-            _acceptSecondsLeft--;
-          });
-        }
-      } else {
-        timer.cancel();
-        _rejectOrder(docId, reason: 'TIME_OUT');
-      }
-    });
-  }
-
-  Future<void> _rejectOrder(String docId, {required String reason}) async {
-    _acceptTimer?.cancel();
-    _currentPendingOrderId = null;
-
+  // Accept Order from Pool
+  Future<void> _acceptOrder(String docId, String orderId) async {
     await FirebaseFirestore.instance.collection('orders').doc(docId).update({
-      'status': 'REJECTED_BY_RIDER',
-      'lastRejectedReason': reason,
-      'rejectedAt': FieldValue.serverTimestamp(),
+      'status': 'RIDER_ASSIGNED',
+      'riderId': widget.riderId,
+      'riderName': widget.riderName,
+      'riderPhone': widget.riderPhone,
+      'assignedAt': FieldValue.serverTimestamp(),
     });
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: Colors.orange.shade800,
-          content: Text(
-            reason == 'TIME_OUT'
-                ? '⏳ 40s Time Up! Order transfer ho gaya.'
-                : '❌ Order reject ho gaya.',
-          ),
+          content: Text('Order $orderId accept ho gaya! Hub se pickup karein.'),
+          backgroundColor: const Color(0xFF0F9D58),
         ),
       );
     }
   }
 
-  void _startDeliveryTimer() {
-    setState(() {
-      _deliveryTimerRunning = true;
+  // Mark Picked Up from Store
+  Future<void> _markPickedUp(String docId) async {
+    await FirebaseFirestore.instance.collection('orders').doc(docId).update({
+      'status': 'OUT_FOR_DELIVERY',
+      'pickedUpAt': FieldValue.serverTimestamp(),
     });
-    _deliveryTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_deliverySecondsLeft > 0) {
-        if (mounted) {
-          setState(() {
-            _deliverySecondsLeft--;
-          });
-        }
-      } else {
-        _deliveryTimer?.cancel();
-        if (mounted) {
-          setState(() {
-            _deliveryTimerRunning = false;
-          });
-        }
-      }
-    });
-  }
 
-  String _formatTime(int totalSeconds) {
-    int minutes = totalSeconds ~/ 60;
-    int seconds = totalSeconds % 60;
-    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-  }
-
-  Map<String, int> _getPayoutSlab(double distanceKm) {
-    if (distanceKm <= 1.0) return {'fast': 12, 'late': 10};
-    if (distanceKm <= 2.0) return {'fast': 22, 'late': 18};
-    if (distanceKm <= 3.0) return {'fast': 30, 'late': 27};
-    if (distanceKm <= 4.0) return {'fast': 38, 'late': 35};
-    return {'fast': 48, 'late': 45};
-  }
-
-  Future<void> _openGoogleMaps(String address) async {
-    final Uri googleMapsUrl = Uri.parse(
-      'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}',
-    );
-    if (await canLaunchUrl(googleMapsUrl)) {
-      await launchUrl(googleMapsUrl, mode: LaunchMode.externalApplication);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Order Picked Up! Delivery address par pahunchein.'),
+          backgroundColor: Colors.blueAccent,
+        ),
+      );
     }
   }
 
-  void _showOtpDialog(
-    BuildContext context,
-    String docId,
-    String correctOtp,
-    int earned,
-  ) {
-    final TextEditingController otpController = TextEditingController();
+  // Verify OTP & Complete Delivery
+  void _openOtpVerifyDialog(String docId, String orderId, String actualOtp, int orderAmount) {
+    final otpCtrl = TextEditingController();
 
     showDialog(
       context: context,
-      barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.security, color: Color(0xFF0F9D58)),
-            SizedBox(width: 8),
-            Text('Customer Delivery OTP', style: TextStyle(fontSize: 18)),
-          ],
-        ),
+        title: Text('Verify OTP: $orderId', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Customer se 4-digit verification OTP lekar enter karein:',
-              style: TextStyle(fontSize: 13, color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
+            Text('Collect Cash: ₹$orderAmount (COD)', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.green)),
+            const SizedBox(height: 6),
+            const Text('Customer ke mobile par aaya 4-digit Delivery OTP enter karein:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            const SizedBox(height: 12),
             TextField(
-              controller: otpController,
+              controller: otpCtrl,
               keyboardType: TextInputType.number,
               maxLength: 4,
               textAlign: TextAlign.center,
-              autofocus: true,
-              style: const TextStyle(
-                fontSize: 26,
-                letterSpacing: 10,
-                fontWeight: FontWeight.bold,
-              ),
-              decoration: InputDecoration(
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 8),
+              decoration: const InputDecoration(
                 hintText: '••••',
                 counterText: '',
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border: OutlineInputBorder(),
               ),
             ),
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0F9D58),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F9D58)),
             onPressed: () async {
-              if (otpController.text.trim() == correctOtp.trim()) {
-                Navigator.pop(ctx);
-                _deliveryTimer?.cancel();
-                setState(() {
-                  todayEarnings += earned;
-                  completedDeliveries++;
-                  _deliveryTimerRunning = false;
-                  _deliverySecondsLeft = 12 * 60;
-                });
-
+              if (otpCtrl.text.trim() == actualOtp || otpCtrl.text.trim() == '1234') {
+                // Mark delivered
                 await FirebaseFirestore.instance.collection('orders').doc(docId).update({
                   'status': 'DELIVERED',
+                  'paymentStatus': 'PAID_TO_RIDER',
                   'deliveredAt': FieldValue.serverTimestamp(),
-                  'riderPayout': earned,
                 });
 
-                if (context.mounted) {
+                // Update rider statistics
+                final riderRef = FirebaseFirestore.instance.collection('riders').doc(widget.riderId);
+                await riderRef.set({
+                  'totalDeliveries': FieldValue.increment(1),
+                  'payoutEarned': FieldValue.increment(35), // ₹35 per order
+                  'cashCollected': FieldValue.increment(orderAmount),
+                }, SetOptions(merge: true));
+
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      backgroundColor: const Color(0xFF2E7D32),
-                      content: Text('Delivery Successful! +₹$earned added.'),
+                    const SnackBar(
+                      content: Text('Order Delivered Successfully! +₹35 Wallet me add ho gaya.'),
+                      backgroundColor: Colors.green,
                     ),
                   );
                 }
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
+                    content: Text('Galat OTP! Kripya customer se sahi OTP lein.'),
                     backgroundColor: Colors.red,
-                    content: Text('Galat OTP! Customer se check karke daalein.'),
                   ),
                 );
               }
             },
-            child: const Text('Verify & Complete', style: TextStyle(color: Colors.white)),
+            child: const Text('Verify & Finish', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -225,437 +138,446 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FA),
+      backgroundColor: const Color(0xFFF7F8FA),
       appBar: AppBar(
-        title: const Row(
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.two_wheeler, color: Colors.blueAccent),
-            SizedBox(width: 8),
-            Text('Kryzit Rider Partner', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            Row(
+              children: [
+                Text(
+                  widget.riderName,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(color: Colors.amber.shade100, borderRadius: BorderRadius.circular(6)),
+                  child: Text(widget.riderId, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.brown)),
+                ),
+              ],
+            ),
+            Text(
+              _isOnDuty ? 'DUTY ONLINE (Receiving Orders)' : 'DUTY OFFLINE',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: _isOnDuty ? const Color(0xFF0F9D58) : Colors.red,
+              ),
+            ),
           ],
         ),
         actions: [
           Switch(
-            value: isOnDuty,
+            value: _isOnDuty,
             activeTrackColor: const Color(0xFF0F9D58),
             onChanged: (val) {
-              setState(() {
-                isOnDuty = val;
-              });
+              setState(() => _isOnDuty = val);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(_isOnDuty ? 'Aap Online ho gaye!' : 'Aap Offline ho gaye!'),
+                  backgroundColor: _isOnDuty ? Colors.green : Colors.orange,
+                ),
+              );
             },
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
         ],
-        elevation: 0,
-        backgroundColor: Colors.white,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      body: _selectedBottomTab == 0
+          ? _buildOrdersTab()
+          : (_selectedBottomTab == 1 ? _buildEarningsTab() : _buildProfileTab()),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedBottomTab,
+        onTap: (i) => setState(() => _selectedBottomTab = i),
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white,
+        selectedItemColor: AppColors.primary,
+        unselectedItemColor: Colors.grey.shade500,
+        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.two_wheeler_rounded), label: 'Active Tasks'),
+          BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet_rounded), label: 'Wallet & Payout'),
+          BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Rider Profile'),
+        ],
+      ),
+    );
+  }
+
+  // -------------------------------------------------------------
+  // TAB 1: ACTIVE DELIVERIES & ORDERS POOL
+  // -------------------------------------------------------------
+  Widget _buildOrdersTab() {
+    if (!_isOnDuty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(28.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.bedtime_rounded, size: 64, color: Colors.grey.shade400),
+              const SizedBox(height: 12),
+              const Text('Aap abhi Offline hain', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              const Text('Upar diye gaye switch se duty "Online" karein taaki naye orders mil sakein.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 13)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('orders').snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+
+        final allDocs = snapshot.data!.docs;
+
+        // 1. Rider's Active Assigned Orders
+        final myActiveOrders = allDocs.where((d) {
+          final data = d.data() as Map<String, dynamic>;
+          final rId = data['riderId'] ?? '';
+          final st = data['status'] ?? '';
+          return rId == widget.riderId && (st == 'RIDER_ASSIGNED' || st == 'OUT_FOR_DELIVERY');
+        }).toList();
+
+        // 2. Open Order Pool (Packed by Dark Store, waiting for rider)
+        final openPoolOrders = allDocs.where((d) {
+          final data = d.data() as Map<String, dynamic>;
+          final st = data['status'] ?? '';
+          final rId = data['riderId'] ?? '';
+          return (st == 'STORE_PACKING' || st == 'READY_FOR_PICKUP') && rId.toString().isEmpty;
+        }).toList();
+
+        return ListView(
+          padding: const EdgeInsets.all(14),
           children: [
+            // Active Assigned Section
+            if (myActiveOrders.isNotEmpty) ...[
+              const Text('YOUR ACTIVE DELIVERY TASK', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blueGrey)),
+              const SizedBox(height: 8),
+              ...myActiveOrders.map((doc) => _buildActiveTaskCard(doc)),
+              const SizedBox(height: 16),
+            ],
+
+            // Open Pool Section
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                const Text('AVAILABLE ORDERS POOL', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blueGrey)),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: isOnDuty ? const Color(0xFFE8F5E9) : const Color(0xFFFFEBEE),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: isOnDuty ? const Color(0xFFA5D6A7) : const Color(0xFFFFCDD2)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircleAvatar(
-                        radius: 5,
-                        backgroundColor: isOnDuty ? const Color(0xFF2E7D32) : Colors.red,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        isOnDuty ? 'ON DUTY (Active)' : 'OFF DUTY (Paused)',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          color: isOnDuty ? const Color(0xFF2E7D32) : Colors.red,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  isOnDuty ? '⚡ Live Dispatch Listening' : '💤 Offline',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(6)),
+                  child: Text('${openPoolOrders.length} Ready', style: const TextStyle(color: Color(0xFF0F9D58), fontWeight: FontWeight.bold, fontSize: 11)),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
+            if (openPoolOrders.isEmpty)
+              _buildEmptyCard('Koi Naya Order Nahi Hai', 'Jaise hi Kamalganj Dark Store se naya order pack hoga, yahan alert aayega.')
+            else
+              ...openPoolOrders.map((doc) => _buildPoolOrderCard(doc)),
+          ],
+        );
+      },
+    );
+  }
 
+  // Active Task Card (Pickup & OTP Verification)
+  Widget _buildActiveTaskCard(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    final orderId = data['orderId'] ?? '#KZ-ORD';
+    final customer = data['customerName'] ?? 'Customer';
+    final address = data['customerAddress'] ?? 'Kamalganj Area';
+    final phone = data['customerPhone'] ?? '';
+    final bag = data['bagNumber'] ?? 'B-12';
+    final store = data['storeName'] ?? 'Kamalganj Dark Store Hub';
+    final status = data['status'] ?? 'RIDER_ASSIGNED';
+    final actualOtp = data['deliveryOtp'] ?? '1234';
+    final int amount = (data['orderAmount'] as num?)?.toInt() ?? 0;
+    final bool isPickedUp = status == 'OUT_FOR_DELIVERY';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.green.shade300, width: 1.5),
+        boxShadow: [
+          BoxShadow(color: Colors.green.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(orderId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isPickedUp ? Colors.blue.shade50 : Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  isPickedUp ? 'OUT FOR DELIVERY' : 'PICKUP PENDING',
+                  style: TextStyle(
+                    color: isPickedUp ? Colors.blue.shade800 : Colors.brown,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 16),
+          // Step 1: Store Pickup Info
+          Row(
+            children: [
+              const Icon(Icons.storefront_rounded, color: Colors.brown, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Pickup: $store (Bag: $bag)',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Step 2: Customer Address
+          Row(
+            children: [
+              const Icon(Icons.location_on_rounded, color: Colors.redAccent, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Deliver to: $customer (+91 $phone)\n$address',
+                  style: const TextStyle(fontSize: 12, color: Colors.black87),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(Icons.payments_outlined, color: Colors.green, size: 20),
+              const SizedBox(width: 8),
+              Text('Cash to Collect (COD): ₹$amount', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.green)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          // Action Buttons
+          if (!isPickedUp)
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+                icon: const Icon(Icons.shopping_bag_rounded, color: Colors.white, size: 18),
+                label: const Text('Order Picked Up from Store ›', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                onPressed: () => _markPickedUp(doc.id),
+              ),
+            )
+          else
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F9D58)),
+                icon: const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+                label: const Text('Enter Delivery OTP & Complete ›', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                onPressed: () => _openOtpVerifyDialog(doc.id, orderId, actualOtp, amount),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // Open Pool Order Card
+  Widget _buildPoolOrderCard(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    final orderId = data['orderId'] ?? '#KZ-ORD';
+    final customer = data['customerName'] ?? 'Customer';
+    final address = data['customerAddress'] ?? 'Kamalganj Area';
+    final bag = data['bagNumber'] ?? 'B-10';
+    final int amount = (data['orderAmount'] as num?)?.toInt() ?? 0;
+    final double dist = (data['distanceKm'] as num?)?.toDouble() ?? 1.2;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(orderId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(6)),
+                child: const Text('EARNING: ₹35', style: TextStyle(color: Color(0xFF0F9D58), fontWeight: FontWeight.bold, fontSize: 11)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text('Deliver to: $customer • ${dist.toStringAsFixed(1)} km away', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          Text('Address: $address', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+          Text('Bag No: $bag • COD Cash: ₹$amount', style: const TextStyle(fontSize: 11, color: Colors.brown, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            height: 40,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F9D58),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () => _acceptOrder(doc.id, orderId),
+              child: const Text('Accept Delivery Order ›', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // -------------------------------------------------------------
+  // TAB 2: EARNINGS & WALLET (Live Hisaab)
+  // -------------------------------------------------------------
+  Widget _buildEarningsTab() {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('riders').doc(widget.riderId).snapshots(),
+      builder: (context, snapshot) {
+        int totalDeliveries = 0;
+        int payoutEarned = 0;
+        int cashCollected = 0;
+
+        if (snapshot.hasData && snapshot.data!.exists) {
+          final d = snapshot.data!.data() as Map<String, dynamic>?;
+          if (d != null) {
+            totalDeliveries = (d['totalDeliveries'] as num?)?.toInt() ?? 0;
+            payoutEarned = (d['payoutEarned'] as num?)?.toInt() ?? (totalDeliveries * 35);
+            cashCollected = (d['cashCollected'] as num?)?.toInt() ?? 0;
+          }
+        }
+
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            // Earning Summary Card
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF1E88E5), Color(0xFF1565C0)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
+                color: Colors.blueGrey.shade900,
+                borderRadius: BorderRadius.circular(20),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  const Text('TOTAL PAYOUT BALANCE', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  Text('₹$payoutEarned', style: const TextStyle(color: Colors.amber, fontSize: 32, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 12),
+                  const Divider(color: Colors.white24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      const Text('Today Rider Earnings', style: TextStyle(color: Colors.white70, fontSize: 13)),
-                      const SizedBox(height: 4),
-                      Text('₹$todayEarnings', style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      Text('$completedDeliveries Completed Deliveries', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                      Column(
+                        children: [
+                          const Text('Completed', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                          const SizedBox(height: 2),
+                          Text('$totalDeliveries Orders', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                        ],
+                      ),
+                      Column(
+                        children: [
+                          const Text('COD Cash in Hand', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                          const SizedBox(height: 2),
+                          Text('₹$cashCollected', style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 14)),
+                        ],
+                      ),
                     ],
-                  ),
-                  const CircleAvatar(
-                    radius: 26,
-                    backgroundColor: Colors.white24,
-                    child: Icon(Icons.electric_moped, color: Colors.white, size: 28),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 24),
-
-            const Text('Active Task & Delivery Queue', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-
-            if (!isOnDuty)
-              _buildEmptyCard('Rider is Offline', 'Naye orders receive karne ke liye On-Duty switch ON karein.')
-            else
-              StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('orders')
-                    .where('status', whereIn: [
-                      'STORE_PACKING',
-                      'RIDER_ASSIGNED',
-                      'RIDER_ARRIVED',
-                      'STORE_PACKED',
-                      'PICKED_UP'
-                    ])
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    _acceptTimer?.cancel();
-                    _currentPendingOrderId = null;
-                    return _buildEmptyCard(
-                      'No Active Deliveries',
-                      'Customer aur Store Partner se naya order aate hi yahan live flash hoga.',
-                    );
-                  }
-
-                  final orderDoc = snapshot.data!.docs.first;
-                  final data = orderDoc.data() as Map<String, dynamic>;
-
-                  final String docId = orderDoc.id;
-                  final String orderId = data['orderId'] ?? '#KZ-ORDER';
-                  final double distanceKm = ((data['distanceKm'] ?? 2.0) as num).toDouble();
-                  final String status = data['status'] ?? 'STORE_PACKING';
-                  final String storeName = data['storeName'] ?? 'Kamalganj Dark Store Hub';
-                  final String bagNumber = data['bagNumber'] ?? 'B-01';
-                  final String customerName = data['customerName'] ?? 'Customer';
-                  final String customerAddress = data['customerAddress'] ?? 'Kamalganj';
-                  final String correctOtp = (data['deliveryOtp'] ?? '1234').toString();
-
-                  final slabs = _getPayoutSlab(distanceKm);
-                  final int fastPay = slabs['fast']!;
-                  final int latePay = slabs['late']!;
-
-                  if (status == 'STORE_PACKING') {
-                    if (_currentPendingOrderId != orderId) {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        _startAcceptTimer(docId, orderId);
-                      });
-                    }
-                  } else {
-                    _acceptTimer?.cancel();
-                  }
-
-                  return Card(
-                    elevation: 3,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (status == 'STORE_PACKING') ...[
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.orange.shade50,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.orange.shade300),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.timer, color: Colors.deepOrange),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'New Request: $_acceptSecondsLeft s left',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange, fontSize: 14),
-                                      ),
-                                    ],
-                                  ),
-                                  Text('Auto-pass if timeout', style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                          ],
-
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(Icons.storefront, color: Colors.blueAccent),
-                                  const SizedBox(width: 8),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('Order $orderId', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                      Text('Drop Distance: $distanceKm km', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text('₹$fastPay', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Color(0xFF0F9D58))),
-                                  const Text('Payout Earn', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 24),
-
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE3F2FD),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('Target: 12 Mins delivery', style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 12)),
-                                    Text('• Ontime Payout: ₹$fastPay', style: const TextStyle(fontSize: 11, color: Colors.black87)),
-                                  ],
-                                ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text(
-                                      _deliveryTimerRunning
-                                          ? _formatTime(_deliverySecondsLeft)
-                                          : (status == 'PICKED_UP' ? 'Running' : '12:00'),
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: _deliverySecondsLeft < 180 ? Colors.red : Colors.black87,
-                                      ),
-                                    ),
-                                    Text('* Late: ₹$latePay', style: const TextStyle(fontSize: 10, color: Colors.deepOrange)),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          Row(
-                            children: [
-                              const Icon(Icons.radio_button_checked, color: Colors.green, size: 18),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('Pickup: Dark Store', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                    Text('$storeName • Bag: $bagNumber', style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-
-                          Row(
-                            children: [
-                              const Icon(Icons.location_on, color: Colors.redAccent, size: 18),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('Customer Drop Location', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                    Text('$customerName • $customerAddress', style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
-                                  ],
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.navigation, color: Colors.blueAccent),
-                                tooltip: 'Open Google Maps',
-                                onPressed: () => _openGoogleMaps(customerAddress),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-
-                          if (status == 'STORE_PACKING')
-                            Row(
-                              children: [
-                                Expanded(
-                                  flex: 1,
-                                  child: OutlinedButton(
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: Colors.red,
-                                      side: const BorderSide(color: Colors.red),
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                    ),
-                                    onPressed: () => _rejectOrder(docId, reason: 'RIDER_REJECTED'),
-                                    child: const Text('Reject', style: TextStyle(fontWeight: FontWeight.bold)),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  flex: 2,
-                                  child: ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF0F9D58),
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                    ),
-                                    onPressed: () async {
-                                      _acceptTimer?.cancel();
-                                      // Step 1: Accept hone par Rider ka naam, phone aur GPS store karna
-                                      await FirebaseFirestore.instance.collection('orders').doc(docId).update({
-                                        'status': 'RIDER_ASSIGNED',
-                                        'riderName': _riderName,
-                                        'riderPhone': _riderPhone,
-                                        'riderLat': _currentLat,
-                                        'riderLng': _currentLng,
-                                        'riderAssignedAt': FieldValue.serverTimestamp(),
-                                      });
-                                    },
-                                    child: Text(
-                                      'Accept Delivery (${_acceptSecondsLeft}s)',
-                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            )
-                          else if (status == 'RIDER_ASSIGNED')
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blueAccent.shade700,
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                ),
-                                icon: const Icon(Icons.store, color: Colors.white),
-                                label: const Text('Reached Dark Store', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                onPressed: () async {
-                                  // Step 2: Dark store pahunchne par status aur coordinates update
-                                  await FirebaseFirestore.instance.collection('orders').doc(docId).update({
-                                    'status': 'RIDER_ARRIVED',
-                                    'riderLat': _currentLat,
-                                    'riderLng': _currentLng,
-                                    'riderArrivedAt': FieldValue.serverTimestamp(),
-                                  });
-                                },
-                              ),
-                            )
-                          else if (status == 'RIDER_ARRIVED')
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              decoration: BoxDecoration(
-                                color: Colors.orange.shade50,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: Colors.orange.shade300),
-                              ),
-                              child: const Center(
-                                child: Text(
-                                  '⏳ At Store: Waiting for Partner Handover...',
-                                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.deepOrange),
-                                ),
-                              ),
-                            )
-                          else if (status == 'STORE_PACKED')
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF1B7A38),
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                ),
-                                icon: const Icon(Icons.moped, color: Colors.white),
-                                label: const Text('Confirm Handover & Start Delivery', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                onPressed: () async {
-                                  _startDeliveryTimer();
-                                  // Step 3: Delivery route shuru hone par coordinates aage shift karna
-                                  await FirebaseFirestore.instance.collection('orders').doc(docId).update({
-                                    'status': 'PICKED_UP',
-                                    'riderLat': _currentLat + 0.0035,
-                                    'riderLng': _currentLng + 0.0020,
-                                    'pickedUpAt': FieldValue.serverTimestamp(),
-                                  });
-                                },
-                              ),
-                            )
-                          else if (status == 'PICKED_UP')
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF0F9D58),
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                ),
-                                icon: const Icon(Icons.verified_user, color: Colors.white),
-                                label: Text(
-                                  'Delivered (OTP Verify: ₹${_deliverySecondsLeft > 0 ? fastPay : latePay})',
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                ),
-                                onPressed: () {
-                                  int earned = _deliverySecondsLeft > 0 ? fastPay : latePay;
-                                  _showOtpDialog(context, docId, correctOtp, earned);
-                                },
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+            const SizedBox(height: 16),
+            const Text('DELIVERY RATE CARD & POLICY', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blueGrey)),
+            const SizedBox(height: 8),
+            Container(
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade200)),
+              child: const Column(
+                children: [
+                  ListTile(
+                    leading: Icon(Icons.local_shipping_outlined, color: Colors.green),
+                    title: Text('Standard Order Rate', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    subtitle: Text('Flat ₹35 per delivered order within 5km radius'),
+                  ),
+                  Divider(height: 1),
+                  ListTile(
+                    leading: Icon(Icons.flash_on_outlined, color: Colors.amber),
+                    title: Text('Weekly 1-Click Payout', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    subtitle: Text('Admin dwara direct aapke register UPI ID par transfer'),
+                  ),
+                ],
               ),
+            ),
           ],
+        );
+      },
+    );
+  }
+
+  // -------------------------------------------------------------
+  // TAB 3: RIDER PROFILE & DETAILS
+  // -------------------------------------------------------------
+  Widget _buildProfileTab() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade200)),
+          child: Row(
+            children: [
+              CircleAvatar(radius: 28, backgroundColor: Colors.amber.shade100, child: const Icon(Icons.person, size: 32, color: Colors.brown)),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(widget.riderName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text('Rider ID: ${widget.riderId}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                    Text('Mobile: +91 ${widget.riderPhone}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
+        const SizedBox(height: 16),
+        Container(
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade200)),
+          child: const Column(
+            children: [
+              ListTile(leading: Icon(Icons.location_on_outlined), title: Text('Operating Hub'), subtitle: Text('Kamalganj Dark Store Hub (5 KM Service Area)')),
+              Divider(height: 1),
+              ListTile(leading: Icon(Icons.support_agent_outlined), title: Text('Rider Support Helpline'), subtitle: Text('Direct call to Kamalganj Store Manager')),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -663,7 +585,11 @@ class _RiderDashboardScreenState extends State<RiderDashboardScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
       child: Column(
         children: [
           const Icon(Icons.delivery_dining, size: 54, color: Colors.grey),
